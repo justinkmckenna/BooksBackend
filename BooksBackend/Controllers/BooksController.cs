@@ -5,6 +5,7 @@ using BooksBackend.Models.Books;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace BooksBackend.Controllers
@@ -26,18 +27,9 @@ namespace BooksBackend.Controllers
         public async Task<ActionResult> GetAllBooks()
         {
             var response = new GetAllBooksResponse();
-            var books = await _context.Books.ProjectTo<BooksResponseItem>(_mapperConfig).ToListAsync();
-            response.Data = books;
-            return Ok(response);
-        }
-
-        [HttpGet("booksininventory")]
-        public async Task<ActionResult> GetBooksInventory()
-        {
-            var response = new GetAllBooksResponse();
-            var booksInInventory = await _context.Books.Where(b => b.IsInInventory).
+            var books = await _context.Books.Where(b => b.IsInInventory).
                 ProjectTo<BooksResponseItem>(_mapperConfig).ToListAsync();
-            response.Data = booksInInventory;
+            response.Data = books;
             return Ok(response);
         }
 
@@ -59,6 +51,34 @@ namespace BooksBackend.Controllers
             await _context.SaveChangesAsync();
             var response = _mapper.Map<GetBookDetailsResponse>(book);
             return CreatedAtRoute("books#getbook", new { bookId = response.Id }, response);
+        }
+
+        [HttpDelete("books/{bookId:int}")]
+        public async Task<ActionResult> RemoveBook(int bookId)
+        {
+            var bookToRemove = await _context.Books.SingleOrDefaultAsync(b => b.id == bookId && b.IsInInventory);
+            if (bookToRemove != null)
+            {
+                bookToRemove.IsInInventory = false;
+                await _context.SaveChangesAsync();
+            }
+            return NoContent();
+        }
+
+        [HttpPut("books/{bookId:int}/title")]
+        public async Task<ActionResult> UpdateTitle(int bookId, [FromBody] string newTitle)
+        {
+            var book = await _context.Books.SingleOrDefaultAsync(x => x.id == bookId && x.IsInInventory);
+            if (book == null)
+            {
+                return NotFound();
+            }
+            else
+            {
+                book.Title = newTitle; // add validation to make sure it's not "it" title
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
         }
     }
 }
